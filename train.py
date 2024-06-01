@@ -45,7 +45,9 @@ class TrainDataset(Dataset):
         inputs = self.processor(images=image).to(self.device, torch.float16)
         caption_ids = self.caption_ids[idx]
         attention_mask = torch.ones(max_caption_ids.shape).to(self.device)
-        
+
+        print(max_caption_ids.shape, inputs.pixel_values.shape, attention_mask.shape, caption_ids.shape)
+
         return max_caption_ids.to(self.device), inputs.pixel_values.to(self.device).squeeze(0), attention_mask, caption_ids.to(self.device)
 
     def __len__(self):
