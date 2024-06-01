@@ -29,6 +29,10 @@ class TrainDataset(Dataset):
         self.img_names = [name.split('/')[1].split('.')[0] for name in self.img_names]
         self.processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
 
+        captions = [self.image_caption_dict[name + '.jpg'][self.max_caption_dict['train_emb/'+name+'.npy']] for name in self.img_names]
+
+        self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
+
     def __getitem__(self, idx):
         #img embedding, caption embedding, kNN scores, kNN indices
 
