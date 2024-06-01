@@ -46,8 +46,6 @@ class TrainDataset(Dataset):
         caption_ids = self.caption_ids[idx]
         attention_mask = torch.ones(max_caption_ids.shape).to(self.device)
 
-        print(max_caption_ids.shape, inputs.pixel_values.shape, attention_mask.shape, caption_ids.shape)
-
         return max_caption_ids.to(self.device), inputs.pixel_values.to(self.device).squeeze(0), attention_mask, caption_ids.to(self.device)
 
     def __len__(self):
@@ -58,7 +56,7 @@ if __name__ == '__main__':
     batch_size = int(sys.argv[1])
 
     train_data = TrainDataset()
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
 
     model = Blip2ForConditionalGeneration.from_pretrained(
     "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
