@@ -11,6 +11,8 @@ import pickle
 import os
 import sys
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 class TrainDataset(Dataset):
     def __init__(self, k = 1, path='/3d_data/datasets/coco/', knn_file = 'knn/kNN.npy', dict_file ='image_name.pickle', image_2_cap = 'image_name_2_captions.pickle'):
 
