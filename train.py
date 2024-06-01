@@ -36,19 +36,24 @@ class TrainDataset(Dataset):
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
         self.neighbor_ids = self.processor.tokenizer(text = neighbor_captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
 
+        #load all images
+        self.images = []
+        for img_name in tqdm.tqdm(self.img_names):
+            image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
+            inputs = self.processor.image_processor(images=image, return_tensors="pt").to(self.device, torch.float16).squeeze(0)
+            self.images.append(inputs)
+
     def __getitem__(self, idx):
         #img embedding, caption embedding, kNN scores, kNN indices
 
-        img_name = self.img_names[idx]
-        image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
+        image = self.images[idx]
         scores, indices = self.kNN[idx]
         
         max_caption_ids = self.neighbor_ids[int(indices[0])]
-        inputs = self.processor.image_processor(images=image, return_tensors="pt").to(self.device, torch.float16)
         caption_ids = self.caption_ids[idx]
         attention_mask = torch.ones(max_caption_ids.shape).to(self.device)
 
-        return max_caption_ids.to(self.device), inputs.squeeze(0), attention_mask, caption_ids.to(self.device)
+        return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device)
 
     def __len__(self):
         return len(self.img_names)
