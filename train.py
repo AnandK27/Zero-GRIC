@@ -42,8 +42,6 @@ class TrainDataset(Dataset):
         scores, indices = self.kNN[idx]
         
         max_caption_ids = self.neighbor_ids[int(indices[0])]
-        inputs = self.processor(images=image, return_tensors="pt").to(self.device, torch.float16)
-
         inputs = self.processor.image_processor(images=image, return_tensors="pt").to(self.device, torch.float16)
         caption_ids = self.caption_ids[idx]
         attention_mask = torch.ones(max_caption_ids.shape).to(self.device)
