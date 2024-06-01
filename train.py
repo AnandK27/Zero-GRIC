@@ -24,11 +24,8 @@ class TrainDataset(Dataset):
             self.image_caption_dict = pickle.load(handle)
 
         self.img_names = sorted(list(self.max_caption_dict.keys()))
-
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-
         self.img_names = [name.split('/')[1].split('.')[0] for name in self.img_names]
-
         self.processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
 
     def __getitem__(self, idx):
@@ -36,15 +33,11 @@ class TrainDataset(Dataset):
 
         img_name = self.img_names[idx]
         image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
-
         scores, indices = self.kNN[idx]
         
         max_caption = self.image_caption_dict[self.img_names[int(indices[0])] + '.jpg'][self.max_caption_dict['train_emb/'+self.img_names[int(indices[0])]+'.npy']]
-
         inputs = self.processor(images=image, text=max_caption + ' Rephrase',return_tensors="pt",  padding='max_length', truncation=True, max_length = 20).to(self.device, torch.float16)
-
         caption = self.image_caption_dict[img_name + '.jpg'][self.max_caption_dict['train_emb/'+ img_name + '.npy']]
-
         caption_ids = self.processor.tokenizer(text = caption, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
 
         return inputs.input_ids.to(self.device).squeeze(0), inputs.pixel_values.to(self.device).squeeze(0), inputs.attention_mask.to(self.device).squeeze(0), caption_ids.to(self.device).squeeze(0)
@@ -57,7 +50,7 @@ if __name__ == '__main__':
     batch_size = int(sys.argv[1])
 
     train_data = TrainDataset()
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, pin_memory=True)
 
     model = Blip2ForConditionalGeneration.from_pretrained(
     "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
