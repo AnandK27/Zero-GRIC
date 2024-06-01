@@ -77,6 +77,7 @@ if __name__ == '__main__':
 
     print('==================== Training Started ====================')
     for epoch in range(100):
+        loss_avg = 0
         for i, (input_ids, pixel_values, attenion_masks, caption_ids) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
             optimizer.zero_grad()
 
@@ -87,14 +88,13 @@ if __name__ == '__main__':
             optimizer.step()
             scheduler.step()
 
-            if loss.item() < best_loss:
-                best_loss = loss.item()
-                torch.save(model.state_dict(), save_path + 'best_model.pt')
-                print(f'Best Model Saved with Loss: {best_loss:.4f}')
+            loss_avg += loss.item()
 
-        print(f'Epoch: {epoch+1}, Loss: {loss.item():.4f}')
+        loss_avg /= len(train_loader)
 
+        if loss_avg < best_loss:
+            best_loss = loss_avg
+            torch.save(model.state_dict(), save_path + 'best_model.pt')
+            print(f'Best Model Saved with Loss: {best_loss:.4f}')
 
-    for i, data in enumerate(train_loader):
-        print(data)
-        break
+        print(f'Epoch: {epoch+1}, Loss: {loss_avg:.4f}')
