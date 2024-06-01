@@ -40,8 +40,9 @@ class TrainDataset(Dataset):
         self.images = []
         for img_name in tqdm.tqdm(self.img_names):
             image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
-            inputs = self.processor.image_processor(images=image, return_tensors="pt").to(self.device, torch.float16).squeeze(0)
-            self.images.append(inputs)
+            inputs = self.processor.image_processor(images=image, return_tensors="pt").to(self.device, torch.float16)
+            print(inputs)
+            self.images.append(inputs.pixel_values)
 
     def __getitem__(self, idx):
         #img embedding, caption embedding, kNN scores, kNN indices
