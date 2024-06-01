@@ -11,7 +11,6 @@ import pickle
 import os
 import sys
 
-
 class TrainDataset(Dataset):
     def __init__(self, k = 1, path='/3d_data/datasets/coco/', knn_file = 'knn/kNN.npy', dict_file ='image_name.pickle', image_2_cap = 'image_name_2_captions.pickle'):
 
@@ -30,8 +29,10 @@ class TrainDataset(Dataset):
         self.processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
 
         captions = [self.image_caption_dict[name + '.jpg'][self.max_caption_dict['train_emb/'+name+'.npy']] for name in self.img_names]
+        neighbor_captions = [self.image_caption_dict[name + '.jpg'][self.max_caption_dict['train_emb/'+name+'.npy']] + ' Rephrase' for name in self.img_names]
 
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
+        self.neighbor_ids = self.processor.tokenizer(text = neighbor_captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
 
     def __getitem__(self, idx):
         #img embedding, caption embedding, kNN scores, kNN indices
@@ -40,12 +41,12 @@ class TrainDataset(Dataset):
         image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
         scores, indices = self.kNN[idx]
         
-        max_caption = self.image_caption_dict[self.img_names[int(indices[0])] + '.jpg'][self.max_caption_dict['train_emb/'+self.img_names[int(indices[0])]+'.npy']]
-        inputs = self.processor(images=image, text=max_caption + ' Rephrase',return_tensors="pt",  padding='max_length', truncation=True, max_length = 20).to(self.device, torch.float16)
-        caption = self.image_caption_dict[img_name + '.jpg'][self.max_caption_dict['train_emb/'+ img_name + '.npy']]
-        caption_ids = self.processor.tokenizer(text = caption, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
-
-        return inputs.input_ids.to(self.device).squeeze(0), inputs.pixel_values.to(self.device).squeeze(0), inputs.attention_mask.to(self.device).squeeze(0), caption_ids.to(self.device).squeeze(0)
+        max_caption_ids = self.neighbor_ids[int(indices[0])]
+        inputs = self.processor(images=image).to(self.device, torch.float16)
+        caption_ids = self.caption_ids[idx]
+        attention_mask = torch.ones(max_caption_ids.shape).to(self.device)
+        
+        return max_caption_ids.to(self.device), inputs.pixel_values.to(self.device).squeeze(0), attention_mask, caption_ids.to(self.device)
 
     def __len__(self):
         return len(self.img_names)
@@ -82,10 +83,10 @@ if __name__ == '__main__':
     print('==================== Training Started ====================')
     for epoch in range(100):
         loss_avg = 0
-        for i, (input_ids, pixel_values, attenion_masks, caption_ids) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
+        for i, (input_ids, pixel_values, attention_masks, caption_ids) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
             optimizer.zero_grad()
 
-            outputs = model(pixel_values = pixel_values, input_ids = input_ids, attention_mask = attenion_masks, labels=caption_ids)
+            outputs = model(pixel_values = pixel_values, input_ids = input_ids, attention_mask = attention_masks, labels=caption_ids)
             loss = outputs.loss
             
             loss.backward()
