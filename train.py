@@ -36,18 +36,24 @@ class TrainDataset(Dataset):
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
         self.neighbor_ids = self.processor.tokenizer(text = neighbor_captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
 
-        #load all images with batch size
-        img_names_splits = [self.img_names[i:i + 100] for i in range(0, len(self.img_names), 100)]
-        self.images = []
-        for img_names in tqdm.tqdm(img_names_splits):
-            images = []
-            for img_name in img_names:
-                image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
-                images.append(image)
-            images = self.processor.image_processor(images=images, return_tensors="pt").to(self.device, torch.float16)
-            self.images.append(images.pixel_values)
+        if os.path.exists(self.root + 'images.pt'):
+            self.images = torch.load(self.root + 'images.pt')
+        else:
+            #load all im ages with batch size
+            img_names_splits = [self.img_names[i:i + 150] for i in range(0, len(self.img_names), 150)]
+            self.images = []
+            for img_names in tqdm.tqdm(img_names_splits):
+                images = []
+                for img_name in img_names:
+                    image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
+                    images.append(image)
+                images = self.processor.image_processor(images=images, return_tensors="pt").to(self.device, torch.float16)
+                self.images.append(images.pixel_values)
 
-        self.images = torch.cat(self.images, dim=0)
+            self.images = torch.cat(self.images, dim=0)
+
+            #save all images in a file
+            torch.save(self.images, self.root + 'images.pt')
 
     def __getitem__(self, idx):
         #img embedding, caption embedding, kNN scores, kNN indices
