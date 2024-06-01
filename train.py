@@ -36,14 +36,18 @@ class TrainDataset(Dataset):
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
         self.neighbor_ids = self.processor.tokenizer(text = neighbor_captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
 
-        #load all images
+        #load all images with batch size
+        img_names_splits = [self.img_names[i:i + 100] for i in range(0, len(self.img_names), 100)]
         self.images = []
-        for img_name in tqdm.tqdm(self.img_names):
-            image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
-            inputs = self.processor.image_processor(images=image, return_tensors="pt").to(self.device, torch.float16)
-            self.images.append(inputs.pixel_values.squeeze(0))
+        for img_names in tqdm.tqdm(img_names_splits):
+            images = []
+            for img_name in img_names:
+                image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
+                images.append(image)
+            images = self.processor.image_processor(images=images, return_tensors="pt").to(self.device, torch.float16)
+            self.images.append(images.pixel_values)
 
-        self.images = torch.stack(self.images).contiguous()
+        self.images = torch.cat(self.images, dim=0)
 
     def __getitem__(self, idx):
         #img embedding, caption embedding, kNN scores, kNN indices
