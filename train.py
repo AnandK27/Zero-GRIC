@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import numpy as np
+import tqdm
 
 import pickle
 import os
@@ -76,7 +77,7 @@ if __name__ == '__main__':
 
     print('==================== Training Started ====================')
     for epoch in range(100):
-        for i, (input_ids, pixel_values, attenion_masks, caption_ids) in enumerate(train_loader):
+        for i, (input_ids, pixel_values, attenion_masks, caption_ids) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
             optimizer.zero_grad()
 
             outputs = model(pixel_values = pixel_values, input_ids = input_ids, attention_mask = attenion_masks, labels=caption_ids)
