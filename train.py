@@ -41,7 +41,7 @@ class TrainDataset(Dataset):
         else:
             #load all im ages with batch size
             img_names_splits = [self.img_names[i:i + 256] for i in range(0, len(self.img_names), 256)]
-            self.images = torch.zeros((len(self.img_names), 3, 224, 224), device = self.device, dtype=torch.float16)
+            self.images = torch.zeros((len(self.img_names), 3, 224, 224), device = self.device, dtype=torch.float16).contiguous().pin_memory()
             for idx, img_names in tqdm.tqdm(enumerate(img_names_splits), total=len(img_names_splits)):
                 images = []
                 for img_name in img_names:
