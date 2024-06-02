@@ -40,7 +40,7 @@ class TrainDataset(Dataset):
             self.images = torch.load(self.root + 'images.pt')
         else:
             #load all im ages with batch size
-            img_names_splits = [self.img_names[i:i + 128] for i in range(0, len(self.img_names), 128)]
+            img_names_splits = [self.img_names[i:i + 256] for i in range(0, len(self.img_names), 256)]
             self.images = []
             for img_names in tqdm.tqdm(img_names_splits):
                 images = []
