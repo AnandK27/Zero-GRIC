@@ -86,9 +86,11 @@ if __name__ == '__main__':
         if type(param) == torch.nn.parameter.Parameter:
             param.requires_grad = False 
 
+    epochs = 25
+
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.1)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100, eta_min=0.0001)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=0.0001)
 
     save_path = '/3d_data/retreiver/base/'
     if not os.path.exists(save_path):
@@ -98,7 +100,7 @@ if __name__ == '__main__':
 
     best_loss = 1000
 
-    epochs = 25
+
 
     print('==================== Training Started ====================')
     for epoch in range(15):
