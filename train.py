@@ -101,7 +101,7 @@ if __name__ == '__main__':
     epochs = 25
 
     print('==================== Training Started ====================')
-    for epoch in range(25):
+    for epoch in range(15):
         loss_avg = 0
         for i, (input_ids, pixel_values, attention_masks, caption_ids) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
             optimizer.zero_grad()
