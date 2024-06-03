@@ -113,6 +113,7 @@ class ValidationDataset(Dataset):
             for idx, img_names in tqdm.tqdm(enumerate(img_names_splits), total=len(img_names_splits)):
                 images = []
                 for img_name in img_names:
+                    print(img_name)
                     image = Image.open(self.root + 'val2014/' + img_name + '.jpg')
                     images.append(image)
                 images = self.processor.image_processor(images=images, return_tensors="pt").to(self.device, torch.float16)
