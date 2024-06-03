@@ -190,7 +190,7 @@ if __name__ == '__main__':
     model.eval()
 
     val_data = ValidationDataset()
-    val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False, num_workers=4)
+    val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False)
 
     predictions = {}
 
