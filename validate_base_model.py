@@ -89,7 +89,7 @@ class ValidationDataset(Dataset):
             self.train_image_caption_dict = pickle.load(handle)
 
         self.img_names = sorted(list(self.max_caption_dict.keys()))
-        self.img_names = [name.split(r'\\')[1].split('.')[0] for name in self.img_names]
+        self.img_names = [name[10:].split('.')[0] for name in self.img_names]
 
         self.train_img_names = sorted(list(self.train_max_caption_dict.keys()))
         self.train_img_names = [name.split('/')[1].split('.')[0] for name in self.train_img_names]
