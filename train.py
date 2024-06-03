@@ -49,7 +49,7 @@ class TrainDataset(Dataset):
                     image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
                     images.append(image)
                 images = self.processor.image_processor(images=images, return_tensors="pt").to(self.device, torch.float16)
-            self.images[idx*256:idx*256+len(images.pixel_values)] = images.pixel_values
+                self.images[idx*256:idx*256+len(images.pixel_values)] = images.pixel_values
 
             #save all images in a file
             torch.save(self.images, self.root + 'images.pt')
