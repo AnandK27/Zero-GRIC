@@ -96,7 +96,7 @@ class ValidationDataset(Dataset):
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
-
+        print(list(self.max_caption_dict.keys())[:10])
         captions = [self.image_caption_dict[name + '.jpg'][self.max_caption_dict[name+'.npy']] for name in self.img_names]
         neighbor_captions = [self.train_image_caption_dict[name + '.jpg'][self.train_max_caption_dict['train_emb/'+name+'.npy']] + ' Rephrase' for name in self.train_img_names]
 
