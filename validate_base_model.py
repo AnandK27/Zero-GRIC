@@ -121,7 +121,7 @@ class ValidationDataset(Dataset):
             #save all images in a file
             torch.save(self.images, self.root + 'val_images.pt')
 
-        print(self.images[100] == self.images[2])
+        print(torch.all(self.images[100] == self.images[2]))
 
     def __getitem__(self, idx):
         #img embedding, caption embedding, kNN scores, kNN indices
