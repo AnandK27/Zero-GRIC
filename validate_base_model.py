@@ -108,16 +108,15 @@ class ValidationDataset(Dataset):
         else:
             #load all im ages with batch size
             img_names_splits = [self.img_names[i:i + 256] for i in range(0, len(self.img_names), 256)]
-            self.images = []
-            for img_names in tqdm.tqdm(img_names_splits):
+            self.images = torch.zeros((len(self.img_names), 3, 224, 224), device = self.device, dtype=torch.float16).contiguous()
+            torch.save(self.images, self.root + 'val_images.pt')
+            for idx, img_names in tqdm.tqdm(enumerate(img_names_splits), total=len(img_names_splits)):
                 images = []
                 for img_name in img_names:
                     image = Image.open(self.root + 'val2014/' + img_name + '.jpg')
                     images.append(image)
                 images = self.processor.image_processor(images=images, return_tensors="pt").to(self.device, torch.float16)
-                self.images.append(images.pixel_values)
-
-            self.images = torch.cat(self.images, dim=0)
+            self.images[idx*256:idx*256+len(images.pixel_values)] = images.pixel_values
 
             #save all images in a file
             torch.save(self.images, self.root + 'val_images.pt')
