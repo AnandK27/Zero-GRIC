@@ -1,5 +1,5 @@
 transformers==4.32.0
 numpy
-accelerate
+accelerate==0.3.0
 bitsandbytes
 tqdm
