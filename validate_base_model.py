@@ -121,6 +121,8 @@ class ValidationDataset(Dataset):
             #save all images in a file
             torch.save(self.images, self.root + 'val_images.pt')
 
+        print(self.images[100] == self.images[2])
+
     def __getitem__(self, idx):
         #img embedding, caption embedding, kNN scores, kNN indices
 
@@ -198,8 +200,6 @@ if __name__ == '__main__':
         output = model.generate(pixel_values = pixel_values)
 
         prediction_strs = val_data.processor.batch_decode(output, skip_special_tokens=True)
-
-        print(prediction_strs)
 
         for j in range(len(loc_ids)):
             predictions[val_data.img_names[loc_ids[j]]] = prediction_strs[j].strip()
