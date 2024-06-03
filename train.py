@@ -96,6 +96,10 @@ if __name__ == '__main__':
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
+    #load weights
+    if os.path.exists(save_path + 'best_model.pt'):
+        model.load_state_dict(torch.load(save_path + 'best_model.pt'))
+
     model.train()
 
     best_loss = 1000
