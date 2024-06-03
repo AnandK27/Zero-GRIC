@@ -199,6 +199,8 @@ if __name__ == '__main__':
 
         prediction_strs = val_data.processor.batch_decode(output, skip_special_tokens=True)
 
+        print(prediction_strs)
+
         for j in range(len(loc_ids)):
             predictions[val_data.img_names[loc_ids[j]]] = prediction_strs[j].strip()
 
