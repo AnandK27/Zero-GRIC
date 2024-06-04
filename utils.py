@@ -1,5 +1,6 @@
 import json
 import pickle
+import tqdm
 
 def create_id_cap_mapping(data_path, predicted_data_path, out_path):
     data = open(data_path)
@@ -10,12 +11,17 @@ def create_id_cap_mapping(data_path, predicted_data_path, out_path):
         predicted_data = pickle.load(handle)
 
     id_caption = {}
+    file_name_2_id = {}
+
     for i in data['images'] :
         file_name = i['file_name']
         id = i['id']
-        for image_name,caption in predicted_data.items():
-            if image_name == file_name:
-                id_caption[id] = caption
+        file_name_2_id[file_name] = id
+
+
+    for image_name,caption in predicted_data.items():
+        id = file_name_2_id[image_name]
+        id_caption[id] = caption
 
     out_file = open(out_path, "w") 
     json.dump(id_caption, out_file)
