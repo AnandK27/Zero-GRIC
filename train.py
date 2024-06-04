@@ -319,7 +319,7 @@ class TrainDataset(Dataset):
             if self.direct_load:
                 caption_embs = self.caption_emb[idx]
             else:
-                caption_embs = torch.tensor(np.load('train_emb/' + self.img_names[idx] + '.npy')[self.max_caption_dict['train_emb/'+self.img_names[idx]+'.npy']+1], device = self.device, dtype=torch.float16)
+                caption_embs = torch.tensor(np.load('train_emb/' + self.img_names[idx] + '.npy')[self.max_caption_dict['train_emb/'+self.img_names[idx]+'.npy']+1], device = self.device, dtype=torch.float16).reshape(1, -1)
 
             return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), caption_embs, scores[:self.k]
         else:
