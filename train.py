@@ -314,7 +314,7 @@ class TrainDataset(Dataset):
 
             return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), caption_embs, scores[:self.k]
         else:
-            return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), None, scores[:self.k]
+            return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), torch.tensor(1), scores[:self.k]
 
     def __len__(self):
         return len(self.img_names)
