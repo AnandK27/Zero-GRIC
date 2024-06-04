@@ -266,7 +266,7 @@ class TrainDataset(Dataset):
                 self.caption_emb = torch.load(self.root + 'caption_emb.pt')
                 print('Caption Embeddings Loaded')
             else:
-                caption_emb = [(np.load(self.root + 'train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in tqdm.tqdm(self.img_names)]
+                caption_emb = [(np.load('train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in tqdm.tqdm(self.img_names)]
                 self.caption_emb = torch.tensor(caption_emb, device = self.device, dtype=torch.float16)
                 torch.save(self.caption_emb, self.root + 'caption_emb.pt')
 
