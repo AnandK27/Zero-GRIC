@@ -260,14 +260,14 @@ class TrainDataset(Dataset):
 
         #get caption embeddings from train_emb
         self.caption_emb = torch.zeros((len(self.img_names), 768), device = self.device, dtype=torch.float16)
-        # if is_fusion:
-        #     #load caption_emb if it exists
-        #     if os.path.exists(self.root + 'caption_emb.pt'):
-        #         self.caption_emb = torch.load(self.root + 'caption_emb.pt')
-        #     else:
-        #         caption_emb = [(np.load(self.root + 'train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in tqdm.tqdm(self.img_names)]
-        #         self.caption_emb = torch.tensor(caption_emb, device = self.device, dtype=torch.float16)
-        #         torch.save(self.caption_emb, self.root + 'caption_emb.pt')
+        if is_fusion:
+            #load caption_emb if it exists
+            if os.path.exists(self.root + 'caption_emb.pt'):
+                self.caption_emb = torch.load(self.root + 'caption_emb.pt')
+            else:
+                caption_emb = [(np.load(self.root + 'train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in tqdm.tqdm(self.img_names)]
+                self.caption_emb = torch.tensor(caption_emb, device = self.device, dtype=torch.float16)
+                torch.save(self.caption_emb, self.root + 'caption_emb.pt')
 
 
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
