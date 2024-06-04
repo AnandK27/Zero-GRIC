@@ -12,6 +12,7 @@ import torch_geometric
 import pickle
 import os
 import sys
+import glob
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -213,7 +214,7 @@ if __name__ == '__main__':
     direct_load = bool(int(sys.argv[3]))
     k = int(sys.argv[4])
 
-    train_data = TrainDataset(direct_load=direct_load)
+    train_data = TrainDataset(k=k, direct_load=direct_load)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
     if save_path.split('/')[-2] == 'base': 
@@ -239,14 +240,21 @@ if __name__ == '__main__':
         os.makedirs(save_path)
 
     #load weights
-    if os.path.exists(save_path + 'best_model.pt'):
-        model.load_state_dict(torch.load(save_path + 'best_model.pt'))
+    #get files starting with best_model_str(k)
+    files = glob.glob(save_path + 'best_model_'+str(k)+'*')
+    if len(files) > 0:
+        files = sorted(files)
+        model.load_state_dict(torch.load(files[-1]))
+        epoch = int(files[-1].split('_')[-1].split('.')[0])
+        print(f'Model Loaded from {files[-1]}')
+    else:
+        epoch = 0
 
     model.train()
     best_loss = 1000
 
     print('==================== Training Started ====================')
-    for epoch in range(epochs):
+    while epoch < epochs:
         loss_avg = 0
         for i, (input_ids, pixel_values, attention_masks, caption_ids) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
             optimizer.zero_grad()
@@ -264,7 +272,9 @@ if __name__ == '__main__':
 
         if loss_avg < best_loss:
             best_loss = loss_avg
-            torch.save(model.state_dict(), save_path + 'best_model.pt')
+            torch.save(model.state_dict(), save_path + 'best_model_'+str(k)+'_'+str(epoch+1)+'.pt')
             print(f'Best Model Saved with Loss: {best_loss:.4f}')
+        
+        epoch += 1
 
         print(f'Epoch: {epoch+1}, Loss: {loss_avg:.4f}')
