@@ -49,9 +49,23 @@ class Blip2Retreiver(Blip2ForConditionalGeneration):
 
         #Graph Convolution
         x = torch.cat([global_image_embeds, text_clip], dim=1)
-        x = self.graph_conv1(x, torch_geometric.utils.to_dense_adj(scores))
+        edge_index = []
+        for i in range(k):
+            edge_index.append([0, i])
+        for i in range(k):
+            edge_index.append([i, 0])
+        edge_index = np.array(edge_index)
+        edge_index = torch.tensor(edge_index, dtype=torch.long, device=self.device).T
+        #repeat for batch size
+        edge_index = edge_index.repeat(global_image_embeds.shape[0], 1, 1).permute(0, 2, 1)
+        edge_attr = scores.repeat(1,2)
+            
+        x = self.graph_conv1(x, edge_index, edge_attr)
+        x = torch.relu(x)
+        x = self.graph_conv2(x, edge_index, edge_attr)
+        x = torch.relu(x)
 
-
+        image_embeds[:, 0, :] = x[:, 0, :]
 
         # step 2: forward the query tokens through the QFormer, using the image embeddings for cross-attention
         image_attention_mask = torch.ones(image_embeds.size()[:-1], dtype=torch.long, device=image_embeds.device)
