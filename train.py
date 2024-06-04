@@ -6,15 +6,131 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import numpy as np
 import tqdm
+import torch_geometric
 
 import pickle
 import os
 import sys
 
+from transformers.models.blip_2.modeling_blip_2 import Blip2ForConditionalGenerationModelOutput
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+class Blip2Retreiver(Blip2ForConditionalGeneration):
+    def __init__(self, model_name, load_in_8bit=True, device_map=None, torch_dtype=None):
+        super().__init__(model_name, load_in_8bit, device_map, torch_dtype)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        self.mlp = nn.Sequential(nn.Linear(768, 1408), nn.ReLU(), nn.Linear(1408, 1408)).to(self.device)
+
+        self.graph_conv1 = torch_geometric.nn.GCNConv(768, 1024)
+        self.graph_conv2 = torch_geometric.nn.GCNConv(1024, 768)
+
+
+    def forward(self, pixel_values=None, input_ids=None, text_clip=None, scores = None, attention_mask=None, decoder_input_ids=None, decoder_attention_mask=None, labels=None, output_attentions=None, output_hidden_states=None, return_dict=None, interpolate_pos_encoding=False):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        # step 1: forward the images through the vision encoder,
+        # to get image embeddings of shape (batch_size, seq_len, hidden_size)
+        vision_outputs = self.vision_model(
+            pixel_values=pixel_values,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            interpolate_pos_encoding=interpolate_pos_encoding,
+        )
+        image_embeds = vision_outputs[0]
+
+        global_image_embeds = image_embeds[:, 0, :].reshape(-1, 1, 1408)
+
+        k = text_clip.shape[1]
+        #MLP
+        text_clip = self.mlp(text_clip)
+
+        #Graph Convolution
+        x = torch.cat([global_image_embeds, text_clip], dim=1)
+        x = self.graph_conv1(x, torch_geometric.utils.to_dense_adj(scores))
+
+
+
+        # step 2: forward the query tokens through the QFormer, using the image embeddings for cross-attention
+        image_attention_mask = torch.ones(image_embeds.size()[:-1], dtype=torch.long, device=image_embeds.device)
+
+        query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
+        query_outputs = self.qformer(
+            query_embeds=query_tokens,
+            encoder_hidden_states=image_embeds,
+            encoder_attention_mask=image_attention_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+        query_output = query_outputs[0]
+
+        # step 3: use the language model, conditioned on the query outputs and the prompt
+        language_model_inputs = self.language_projection(query_output)
+        language_model_attention_mask = torch.ones(
+            language_model_inputs.size()[:-1], dtype=torch.long, device=language_model_inputs.device
+        )
+        inputs_embeds = self.language_model.get_input_embeddings()(input_ids)
+        inputs_embeds = torch.cat([language_model_inputs, inputs_embeds.to(language_model_inputs.device)], dim=1)
+
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
+        expected_device = language_model_attention_mask.device
+        attention_mask = torch.cat([language_model_attention_mask, attention_mask.to(expected_device)], dim=1)
+
+        if self.config.use_decoder_only_language_model:
+            outputs = self.language_model(
+                inputs_embeds=inputs_embeds,
+                attention_mask=attention_mask,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
+            logits = outputs.logits if return_dict else outputs[0]
+            loss = None
+            # we compute the loss here since we need to take into account the sequence length of the query embeds
+            if labels is not None:
+                labels = labels.to(logits.device)
+                logits = logits[:, -labels.size(1) :, :]
+                # Shift so that tokens < n predict n
+                shift_logits = logits[..., :-1, :].contiguous()
+                shift_labels = labels[..., 1:].contiguous().to(logits.device)
+
+                # Flatten the tokens
+                loss_fct = nn.CrossEntropyLoss(reduction="mean")
+
+                loss = loss_fct(shift_logits.view(-1, self.config.text_config.vocab_size), shift_labels.view(-1))
+        else:
+            outputs = self.language_model(
+                inputs_embeds=inputs_embeds,
+                attention_mask=attention_mask,
+                decoder_input_ids=decoder_input_ids,
+                decoder_attention_mask=decoder_attention_mask,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+                labels=labels,
+            )
+            loss = outputs.loss if return_dict else outputs[0]
+            logits = outputs.logits if return_dict else outputs[1]
+
+        if not return_dict:
+            output = (logits, vision_outputs, query_outputs, outputs)
+            return ((loss,) + output) if loss is not None else output
+
+        return Blip2ForConditionalGenerationModelOutput(
+            loss=loss,
+            logits=logits,
+            vision_outputs=vision_outputs,
+            qformer_outputs=query_outputs,
+            language_model_outputs=outputs,
+        )
+
+
 class TrainDataset(Dataset):
-    def __init__(self, k = 1, path='/3d_data/datasets/coco/', knn_file = 'knn/kNN.npy', dict_file ='image_name.pickle', image_2_cap = 'image_name_2_captions.pickle'):
+    def __init__(self, k = 1, path='/3d_data/datasets/coco/', knn_file = 'knn/kNN.npy', dict_file ='image_name.pickle', image_2_cap = 'image_name_2_captions.pickle', direct_load = False):
 
         self.root = path
         self.kNN = np.load(self.root + knn_file, allow_pickle=True)
@@ -37,28 +153,35 @@ class TrainDataset(Dataset):
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
         self.neighbor_ids = self.processor.tokenizer(text = neighbor_captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
 
-        if os.path.exists(self.root + 'images.pt'):
-            self.images = torch.load(self.root + 'images.pt')
-        else:
-            #load all im ages with batch size
-            img_names_splits = [self.img_names[i:i + 256] for i in range(0, len(self.img_names), 256)]
-            self.images = torch.zeros((len(self.img_names), 3, 224, 224), device = self.device, dtype=torch.float16).contiguous()
-            torch.save(self.images, self.root + 'images.pt')
-            for idx, img_names in tqdm.tqdm(enumerate(img_names_splits), total=len(img_names_splits)):
-                images = []
-                for img_name in img_names:
-                    image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
-                    images.append(image)
-                images = self.processor.image_processor(images=images, return_tensors="pt").to(self.device, torch.float16)
-                self.images[idx*256:idx*256+len(images.pixel_values)] = images.pixel_values
+        self.direct_load = direct_load
+        if direct_load:
+            if os.path.exists(self.root + 'images.pt'):
+                self.images = torch.load(self.root + 'images.pt')
+            else:
+                #load all im ages with batch size
+                img_names_splits = [self.img_names[i:i + 256] for i in range(0, len(self.img_names), 256)]
+                self.images = torch.zeros((len(self.img_names), 3, 224, 224), device = self.device, dtype=torch.float16).contiguous()
+                torch.save(self.images, self.root + 'images.pt')
+                for idx, img_names in tqdm.tqdm(enumerate(img_names_splits), total=len(img_names_splits)):
+                    images = []
+                    for img_name in img_names:
+                        image = Image.open(self.root + 'train2014/' + img_name + '.jpg')
+                        images.append(image)
+                    images = self.processor.image_processor(images=images, return_tensors="pt").to(self.device, torch.float16)
+                    self.images[idx*256:idx*256+len(images.pixel_values)] = images.pixel_values
 
-            #save all images in a file
-            torch.save(self.images, self.root + 'images.pt')
+                #save all images in a file
+                torch.save(self.images, self.root + 'images.pt')
 
     def __getitem__(self, idx):
         #img embedding, caption embedding, kNN scores, kNN indices
 
-        image = self.images[idx]
+        if self.direct_load:
+            image = self.images[idx]
+        else:
+            image = Image.open(self.root + 'train2014/' + self.img_names[idx] + '.jpg')
+            image = self.processor.image_processor(images=[image], return_tensors="pt").to(self.device, torch.float16).pixel_values
+
         scores, indices = self.kNN[idx]
         
         max_caption_ids = self.neighbor_ids[int(indices[0])]
@@ -73,8 +196,9 @@ class TrainDataset(Dataset):
 
 if __name__ == '__main__':
     batch_size = int(sys.argv[1])
+    direct_load = bool(int(sys.argv[2]))
 
-    train_data = TrainDataset()
+    train_data = TrainDataset(direct_load=direct_load)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
     model = Blip2ForConditionalGeneration.from_pretrained(
