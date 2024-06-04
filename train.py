@@ -16,11 +16,11 @@ import glob
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-class Blip2Retreiver(Blip2ForConditionalGeneration):
+class Blip2Retreiver(nn.Module):
     def __init__(self, model_name, load_in_8bit=True, device_map=None, torch_dtype=None):
         super().__init__()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.from_pretrained(model_name, load_in_8bit, device_map, torch_dtype)
+        self.model = Blip2ForConditionalGeneration.from_pretrained(model_name, load_in_8bit, device_map, torch_dtype)
 
         self.mlp = nn.Sequential(nn.Linear(768, 1408), nn.ReLU(), nn.Linear(1408, 1408)).to(self.device)
         self.graph_conv1 = torch_geometric.nn.GCNConv(768, 1024)
@@ -28,11 +28,11 @@ class Blip2Retreiver(Blip2ForConditionalGeneration):
 
 
     def forward(self, pixel_values=None, input_ids=None, text_clip=None, scores = None, attention_mask=None, decoder_input_ids=None, decoder_attention_mask=None, labels=None, output_attentions=None, output_hidden_states=None, return_dict=None, interpolate_pos_encoding=False):
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = return_dict if return_dict is not None else self.model.config.use_return_dict
 
         # step 1: forward the images through the vision encoder,
         # to get image embeddings of shape (batch_size, seq_len, hidden_size)
-        vision_outputs = self.vision_model(
+        vision_outputs = self.model.vision_model(
             pixel_values=pixel_values,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
@@ -70,8 +70,8 @@ class Blip2Retreiver(Blip2ForConditionalGeneration):
         # step 2: forward the query tokens through the QFormer, using the image embeddings for cross-attention
         image_attention_mask = torch.ones(image_embeds.size()[:-1], dtype=torch.long, device=image_embeds.device)
 
-        query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
-        query_outputs = self.qformer(
+        query_tokens = self.model.query_tokens.expand(image_embeds.shape[0], -1, -1)
+        query_outputs = self.model.qformer(
             query_embeds=query_tokens,
             encoder_hidden_states=image_embeds,
             encoder_attention_mask=image_attention_mask,
@@ -82,11 +82,11 @@ class Blip2Retreiver(Blip2ForConditionalGeneration):
         query_output = query_outputs[0]
 
         # step 3: use the language model, conditioned on the query outputs and the prompt
-        language_model_inputs = self.language_projection(query_output)
+        language_model_inputs = self.model.language_projection(query_output)
         language_model_attention_mask = torch.ones(
             language_model_inputs.size()[:-1], dtype=torch.long, device=language_model_inputs.device
         )
-        inputs_embeds = self.language_model.get_input_embeddings()(input_ids)
+        inputs_embeds = self.model.language_model.get_input_embeddings()(input_ids)
         inputs_embeds = torch.cat([language_model_inputs, inputs_embeds.to(language_model_inputs.device)], dim=1)
 
         if attention_mask is None:
@@ -94,8 +94,8 @@ class Blip2Retreiver(Blip2ForConditionalGeneration):
         expected_device = language_model_attention_mask.device
         attention_mask = torch.cat([language_model_attention_mask, attention_mask.to(expected_device)], dim=1)
 
-        if self.config.use_decoder_only_language_model:
-            outputs = self.language_model(
+        if self.model.config.use_decoder_only_language_model:
+            outputs = self.model.language_model(
                 inputs_embeds=inputs_embeds,
                 attention_mask=attention_mask,
                 output_attentions=output_attentions,
@@ -115,9 +115,9 @@ class Blip2Retreiver(Blip2ForConditionalGeneration):
                 # Flatten the tokens
                 loss_fct = nn.CrossEntropyLoss(reduction="mean")
 
-                loss = loss_fct(shift_logits.view(-1, self.config.text_config.vocab_size), shift_labels.view(-1))
+                loss = loss_fct(shift_logits.view(-1, self.model.config.text_config.vocab_size), shift_labels.view(-1))
         else:
-            outputs = self.language_model(
+            outputs = self.model.language_model(
                 inputs_embeds=inputs_embeds,
                 attention_mask=attention_mask,
                 decoder_input_ids=decoder_input_ids,
@@ -220,15 +220,23 @@ if __name__ == '__main__':
     if save_path.split('/')[-2] == 'base': 
         model = Blip2ForConditionalGeneration.from_pretrained(
         "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
+        
+        for param in model.language_model.parameters():
+            param.requires_grad = False
+
+        for param in model.vision_model.parameters():
+            if type(param) == torch.nn.parameter.Parameter:
+                param.requires_grad = False 
+
     else:
         model = Blip2Retreiver("Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
 
-    for param in model.language_model.parameters():
-        param.requires_grad = False
+        for param in model.model.language_model.parameters():
+            param.requires_grad = False
 
-    for param in model.vision_model.parameters():
-        if type(param) == torch.nn.parameter.Parameter:
-            param.requires_grad = False 
+        for param in model.model.vision_model.parameters():
+            if type(param) == torch.nn.parameter.Parameter:
+                param.requires_grad = False 
 
     epochs = 5
 
