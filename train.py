@@ -259,7 +259,7 @@ class TrainDataset(Dataset):
         neighbor_captions = [  ', '.join([captions[int(j)] for j in self.kNN[idx][1][:k]]) + ' Summarize' for idx, name in enumerate(self.img_names)]
 
         #get caption embeddings from train_emb
-        caption_emb = [(np.load(self.root + 'train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in self.img_names]
+        caption_emb = [(np.load(self.root + 'train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in tqdm.tqdm(self.img_names)]
         self.caption_emb = torch.tensor(caption_emb, device = self.device, dtype=torch.float16)
 
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
