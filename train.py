@@ -268,7 +268,7 @@ class TrainDataset(Dataset):
                 caption_emb = [(np.load(self.root + 'train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in tqdm.tqdm(self.img_names)]
                 self.caption_emb = torch.tensor(caption_emb, device = self.device, dtype=torch.float16)
                 torch.save(self.caption_emb, self.root + 'caption_emb.pt')
-                
+
 
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
         self.neighbor_ids = self.processor.tokenizer(text = neighbor_captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
@@ -321,7 +321,7 @@ if __name__ == '__main__':
     direct_load = bool(int(sys.argv[3]))
     k = int(sys.argv[4])
 
-    train_data = TrainDataset(k=k, direct_load=direct_load)
+    train_data = TrainDataset(k=k, direct_load=direct_load, is_fusion = save_path.split('/')[-2] == 'fusion')
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
     is_fusion = save_path.split('/')[-2] == 'fusion'
