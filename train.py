@@ -114,6 +114,7 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
             outputs = model(pixel_values = pixel_values, input_ids = input_ids, attention_mask = attention_masks, labels=caption_ids)
+            print(outputs.vision_outputs[0].shape)
             loss = outputs.loss
             
             loss.backward()
