@@ -258,9 +258,10 @@ class TrainDataset(Dataset):
         neighbor_captions = [  ', '.join([captions[int(j)] for j in self.kNN[idx][1][:k]]) + ' Summarize' for idx, name in enumerate(self.img_names)]
 
         #get caption embeddings from train_emb
-        self.caption_emb = torch.zeros((len(self.img_names), 768), device = self.device, dtype=torch.float16)
+        self.is_fusion = is_fusion
         if is_fusion:
             #load caption_emb if it exists
+            self.caption_emb = torch.zeros((len(self.img_names), 768), device = self.device, dtype=torch.float16)
             if os.path.exists(self.root + 'caption_emb.pt'):
                 self.caption_emb = torch.load(self.root + 'caption_emb.pt')
                 print('Caption Embeddings Loaded')
@@ -308,9 +309,12 @@ class TrainDataset(Dataset):
         max_caption_ids = self.neighbor_ids[idx]
         caption_ids = self.caption_ids[idx]
         attention_mask = torch.ones(max_caption_ids.shape).to(self.device)
-        caption_embs = self.caption_emb[indices[:self.k]]
+        if self.is_fusion:
+            caption_embs = self.caption_emb[indices[:self.k]]
 
-        return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), caption_embs, scores[:self.k]
+            return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), caption_embs, scores[:self.k]
+        else:
+            return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), None, scores[:self.k]
 
     def __len__(self):
         return len(self.img_names)
