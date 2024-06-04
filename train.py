@@ -317,7 +317,7 @@ class TrainDataset(Dataset):
         caption_ids = self.caption_ids[idx]
         attention_mask = torch.ones(max_caption_ids.shape).to(self.device)
         if self.is_fusion:
-            caption_embs = self.caption_emb[idx].reshape(1, -1)
+            caption_embs = self.caption_emb[indices]
             return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), caption_embs, scores[:self.k]
         else:
             return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), torch.tensor(1), scores[:self.k]
