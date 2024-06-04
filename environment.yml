@@ -17,3 +17,4 @@ dependencies:
     - accelerate
     - bitsandbytes
     - tqdm
+    - pycocoevalcap
