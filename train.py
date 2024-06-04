@@ -170,7 +170,7 @@ class Blip2Retreiver(nn.Module):
         edge_index = torch.tensor(edge_index, dtype=torch.long, device=self.device).T
         #repeat for batch size
         edge_index = edge_index.repeat(global_image_embeds.shape[0], 1, 1).permute(0, 2, 1)
-        edge_attr = scores.repeat(1,2)
+        edge_attr = scores.repeat(1,2).to(self.device)
             
         x = self.graph_conv1(x, edge_index, edge_attr)
         x = torch.relu(x)
@@ -375,7 +375,6 @@ if __name__ == '__main__':
         loss_avg = 0
         for i, (input_ids, pixel_values, attention_masks, caption_ids, text_embs, scores) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
             optimizer.zero_grad()
-
             if is_fusion:
                 outputs = model(pixel_values = pixel_values, input_ids = input_ids, attention_mask = attention_masks, labels=caption_ids, text_clip=text_embs, scores=scores)
             else:   
