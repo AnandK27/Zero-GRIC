@@ -53,11 +53,17 @@ class Blip2Retreiver(nn.Module):
             edge_index.append([0, i])
         for i in range(k):
             edge_index.append([i, 0])
+
         edge_index = np.array(edge_index)
+        edge_indices = []
+        for i in range(batch_size):
+            edge_indices.append(edge_index + i*k)
+        edge_index = np.concatenate(edge_indices)
         edge_index = torch.tensor(edge_index, dtype=torch.long, device=self.device).T
-        #repeat for batch size
-        edge_index = edge_index.repeat(global_image_embeds.shape[0], 1, 1).permute(0, 2, 1)
-        edge_attr = scores.repeat(1,2).to(self.device)
+
+        edge_attr = scores.repeat(1,2).to(self.device).flatten()
+        print(edge_attr.shape)
+        print(edge_index.shape)
             
         x = self.graph_conv1(x, edge_index, edge_attr)
         x = torch.relu(x)
@@ -174,8 +180,7 @@ class Blip2Retreiver(nn.Module):
         edge_index = torch.tensor(edge_index, dtype=torch.long, device=self.device).T
 
         edge_attr = scores.repeat(1,2).to(self.device).flatten()
-        print(edge_attr.shape)
-        print(edge_index.shape)
+
         x = self.graph_conv1(x, edge_index, edge_attr)
         x = torch.relu(x)
         x = self.graph_conv2(x, edge_index, edge_attr)
