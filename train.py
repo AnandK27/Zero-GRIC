@@ -238,7 +238,7 @@ class Blip2Retreiver(nn.Module):
 
 
 class TrainDataset(Dataset):
-    def __init__(self, k = 1, path='/3d_data/datasets/coco/', knn_file = 'knn/kNN.npy', dict_file ='image_name.pickle', image_2_cap = 'image_name_2_captions.pickle', direct_load = False):
+    def __init__(self, k = 1, path='/3d_data/datasets/coco/', knn_file = 'knn/kNN.npy', dict_file ='image_name.pickle', image_2_cap = 'image_name_2_captions.pickle', direct_load = False, is_fusion = False):
 
         self.root = path
         self.kNN = np.load(self.root + knn_file, allow_pickle=True)
@@ -259,8 +259,16 @@ class TrainDataset(Dataset):
         neighbor_captions = [  ', '.join([captions[int(j)] for j in self.kNN[idx][1][:k]]) + ' Summarize' for idx, name in enumerate(self.img_names)]
 
         #get caption embeddings from train_emb
-        caption_emb = [(np.load(self.root + 'train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in tqdm.tqdm(self.img_names)]
-        self.caption_emb = torch.tensor(caption_emb, device = self.device, dtype=torch.float16)
+        self.caption_emb = torch.zeros((len(self.img_names), 768), device = self.device, dtype=torch.float16)
+        if is_fusion:
+            #load caption_emb if it exists
+            if os.path.exists(self.root + 'caption_emb.pt'):
+                self.caption_emb = torch.load(self.root + 'caption_emb.pt')
+            else:
+                caption_emb = [(np.load(self.root + 'train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in tqdm.tqdm(self.img_names)]
+                self.caption_emb = torch.tensor(caption_emb, device = self.device, dtype=torch.float16)
+                torch.save(self.caption_emb, self.root + 'caption_emb.pt')
+                
 
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
         self.neighbor_ids = self.processor.tokenizer(text = neighbor_captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
