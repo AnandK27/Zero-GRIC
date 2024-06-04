@@ -213,12 +213,14 @@ if __name__ == '__main__':
     direct_load = bool(int(sys.argv[3]))
     k = int(sys.argv[4])
 
-
     train_data = TrainDataset(direct_load=direct_load)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
-    model = Blip2ForConditionalGeneration.from_pretrained(
-    "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
+    if save_path.split('/')[-2] == 'base': 
+        model = Blip2ForConditionalGeneration.from_pretrained(
+        "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
+    else:
+        model = Blip2Retreiver("Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
 
     for param in model.language_model.parameters():
         param.requires_grad = False
