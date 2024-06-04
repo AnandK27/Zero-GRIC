@@ -20,7 +20,7 @@ def create_id_cap_mapping(data_path, predicted_data_path, out_path):
 
 
     for image_name,caption in predicted_data.items():
-        id = file_name_2_id[image_name]
+        id = file_name_2_id[image_name+'.jpg']
         id_caption[id] = caption
 
     out_file = open(out_path, "w") 
