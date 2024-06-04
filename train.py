@@ -172,9 +172,9 @@ class Blip2Retreiver(nn.Module):
         edge_index = edge_index.repeat(global_image_embeds.shape[0], 1, 1).permute(0, 2, 1)
         edge_attr = scores.repeat(1,2).to(self.device)
             
-        x = self.graph_conv1(x, edge_index, edge_attr)
+        x = self.graph_conv1(x, edge_index.cpu(), edge_attr)
         x = torch.relu(x)
-        x = self.graph_conv2(x, edge_index, edge_attr)
+        x = self.graph_conv2(x, edge_index.cpu(), edge_attr)
         x = torch.relu(x)
 
         image_embeds[:, 0, :] = x[:, 0, :]
