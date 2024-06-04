@@ -141,6 +141,100 @@ class Blip2Retreiver(nn.Module):
             qformer_outputs=query_outputs,
             language_model_outputs=outputs,
         )
+    
+    def generate(self, pixel_values=None, input_ids=None, attention_mask=None, text_clip=None, scores = None, decoder_start_token_id=None, decoder_end_token_id=None, generate_kwargs=None, interpolate_pos_encoding=False):
+        if hasattr(self.model, "hf_device_map"):
+        # preprocess for `accelerate`
+            self.model._preprocess_accelerate()
+
+        batch_size = pixel_values.shape[0]
+        image_embeds = self.vision_model(
+            pixel_values,
+            return_dict=True,
+            interpolate_pos_encoding=interpolate_pos_encoding,
+        ).last_hidden_state
+
+        global_image_embeds = image_embeds[:, 0, :].reshape(-1, 1, 1408)
+
+        k = text_clip.shape[1]
+        #MLP
+        text_clip = self.mlp(text_clip)
+
+        #Graph Convolution
+        x = torch.cat([global_image_embeds, text_clip], dim=1)
+        edge_index = []
+        for i in range(k):
+            edge_index.append([0, i])
+        for i in range(k):
+            edge_index.append([i, 0])
+        edge_index = np.array(edge_index)
+        edge_index = torch.tensor(edge_index, dtype=torch.long, device=self.device).T
+        #repeat for batch size
+        edge_index = edge_index.repeat(global_image_embeds.shape[0], 1, 1).permute(0, 2, 1)
+        edge_attr = scores.repeat(1,2)
+            
+        x = self.graph_conv1(x, edge_index, edge_attr)
+        x = torch.relu(x)
+        x = self.graph_conv2(x, edge_index, edge_attr)
+        x = torch.relu(x)
+
+        image_embeds[:, 0, :] = x[:, 0, :]
+
+        image_attention_mask = torch.ones(image_embeds.size()[:-1], dtype=torch.long, device=image_embeds.device)
+
+        query_tokens = self.model.query_tokens.expand(image_embeds.shape[0], -1, -1)
+        query_outputs = self.model.qformer(
+            query_embeds=query_tokens,
+            encoder_hidden_states=image_embeds,
+            encoder_attention_mask=image_attention_mask,
+            return_dict=True,
+        )
+        query_output = query_outputs.last_hidden_state
+
+        language_model_inputs = self.model.language_projection(query_output)
+        language_attention_mask = torch.ones(
+            language_model_inputs.size()[:-1], dtype=torch.long, device=language_model_inputs.device
+        )
+        if input_ids is None:
+            input_ids = (
+                torch.LongTensor([[self.model.config.text_config.bos_token_id]])
+                .repeat(batch_size, 1)
+                .to(image_embeds.device)
+            )
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
+        attention_mask = torch.cat([language_attention_mask, attention_mask.to(language_attention_mask.device)], dim=1)
+
+        # concatenate query embeddings with prompt embeddings
+        inputs_embeds = self.model.get_input_embeddings()(input_ids)
+        inputs_embeds = torch.cat([language_model_inputs, inputs_embeds.to(language_model_inputs.device)], dim=1)
+
+        # add image_embeds length to max_length, so that the final max_length in counted only on token embeds
+        # -1 is to account for the prepended BOS after `generate.`
+        # TODO (joao, raushan): refactor `generate` to avoid these operations with VLMs
+        if not self.model.language_model.config.is_encoder_decoder:
+            generate_kwargs["max_length"] = generate_kwargs.get("max_length", 20) + language_model_inputs.shape[1] - 1
+            generate_kwargs["min_length"] = generate_kwargs.get("min_length", 0) + language_model_inputs.shape[1]
+
+        outputs = self.model.language_model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=attention_mask,
+            **generate_kwargs,
+        )
+
+        # this is a temporary workaround to be consistent with other generation models and
+        # have BOS as the first token, even though under the hood we are calling LM with embeds
+        if not self.model.language_model.config.is_encoder_decoder:
+            bos_tokens = (
+                torch.LongTensor([[self.model.config.text_config.bos_token_id]])
+                .repeat(batch_size, 1)
+                .to(image_embeds.device)
+            )
+            if not isinstance(outputs, torch.Tensor):
+                outputs.sequences = torch.cat([bos_tokens, outputs.sequences], dim=-1)
+            else:
+                outputs = torch.cat([bos_tokens, outputs], dim=-1)
+        return outputs
 
 
 class TrainDataset(Dataset):
@@ -148,6 +242,7 @@ class TrainDataset(Dataset):
 
         self.root = path
         self.kNN = np.load(self.root + knn_file, allow_pickle=True)
+        self.k = k
 
         with open(self.root + dict_file, 'rb') as handle:
             self.max_caption_dict = pickle.load(handle)
@@ -161,8 +256,11 @@ class TrainDataset(Dataset):
         self.processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
 
         captions = [self.image_caption_dict[name + '.jpg'][self.max_caption_dict['train_emb/'+name+'.npy']] for name in self.img_names]
-        
         neighbor_captions = [  ', '.join([captions[int(j)] for j in self.kNN[idx][1][:k]]) + ' Summarize' for idx, name in enumerate(self.img_names)]
+
+        #get caption embeddings from train_emb
+        caption_emb = [(np.load(self.root + 'train_emb/' + name + '.npy')[self.max_caption_dict['train_emb/'+name+'.npy']+1]) for name in self.img_names]
+        self.caption_emb = torch.tensor(caption_emb, device = self.device, dtype=torch.float16)
 
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
         self.neighbor_ids = self.processor.tokenizer(text = neighbor_captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
@@ -198,11 +296,12 @@ class TrainDataset(Dataset):
 
         scores, indices = self.kNN[idx]
         
-        max_caption_ids = self.neighbor_ids[int(indices[0])]
+        max_caption_ids = self.neighbor_ids[idx]
         caption_ids = self.caption_ids[idx]
         attention_mask = torch.ones(max_caption_ids.shape).to(self.device)
+        caption_embs = self.caption_emb[indices[:self.k]]
 
-        return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device)
+        return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), caption_embs, scores[:self.k]
 
     def __len__(self):
         return len(self.img_names)
@@ -217,7 +316,8 @@ if __name__ == '__main__':
     train_data = TrainDataset(k=k, direct_load=direct_load)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
-    if save_path.split('/')[-2] == 'base': 
+    is_fusion = save_path.split('/')[-2] == 'fusion'
+    if not is_fusion: 
         model = Blip2ForConditionalGeneration.from_pretrained(
         "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
         
@@ -264,10 +364,13 @@ if __name__ == '__main__':
     print('==================== Training Started ====================')
     while epoch < epochs:
         loss_avg = 0
-        for i, (input_ids, pixel_values, attention_masks, caption_ids) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
+        for i, (input_ids, pixel_values, attention_masks, caption_ids, text_embs, scores) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
             optimizer.zero_grad()
 
-            outputs = model(pixel_values = pixel_values, input_ids = input_ids, attention_mask = attention_masks, labels=caption_ids)
+            if is_fusion:
+                outputs = model(pixel_values = pixel_values, input_ids = input_ids, attention_mask = attention_masks, labels=caption_ids, text_clip=text_embs, scores=scores)
+            else:   
+                outputs = model(pixel_values = pixel_values, input_ids = input_ids, attention_mask = attention_masks, labels=caption_ids)
             loss = outputs.loss
             
             loss.backward()
