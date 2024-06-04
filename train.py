@@ -20,7 +20,7 @@ class Blip2Retreiver(nn.Module):
     def __init__(self, model_name, load_in_8bit=True, device_map=None, torch_dtype=None):
         super().__init__()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = Blip2ForConditionalGeneration.from_pretrained(model_name, load_in_8bit, device_map, torch_dtype)
+        self.model = Blip2ForConditionalGeneration.from_pretrained( "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
 
         self.mlp = nn.Sequential(nn.Linear(768, 1408), nn.ReLU(), nn.Linear(1408, 1408)).to(self.device)
         self.graph_conv1 = torch_geometric.nn.GCNConv(768, 1024)
