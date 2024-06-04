@@ -65,10 +65,12 @@ class Blip2Retreiver(nn.Module):
         print(edge_attr.shape)
         print(edge_index.shape)
             
-        x = self.graph_conv1(x, edge_index, edge_attr)
+        x = self.graph_conv1(x.flatten(end_dim=-2), edge_index, edge_attr)
         x = torch.relu(x)
         x = self.graph_conv2(x, edge_index, edge_attr)
         x = torch.relu(x)
+
+        x = x.reshape(-1, 1, 1408)
 
         image_embeds[:, 0, :] = x[:, 0, :]
 
