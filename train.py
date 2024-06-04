@@ -22,9 +22,9 @@ class Blip2Retreiver(nn.Module):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = Blip2ForConditionalGeneration.from_pretrained( "Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
 
-        self.mlp = nn.Sequential(nn.Linear(768, 1408), nn.ReLU(), nn.Linear(1408, 1408)).to(self.device)
-        self.graph_conv1 = torch_geometric.nn.GCNConv(768, 1024)
-        self.graph_conv2 = torch_geometric.nn.GCNConv(1024, 768)
+        self.mlp = nn.Sequential(nn.Linear(768, 1408), nn.ReLU(), nn.Linear(1408, 1408)).to(self.device, torch.float16)
+        self.graph_conv1 = torch_geometric.nn.GCNConv(768, 1024).to(self.device, torch.float16)
+        self.graph_conv2 = torch_geometric.nn.GCNConv(1024, 768).to(self.device, torch.float16)
 
 
     def forward(self, pixel_values=None, input_ids=None, text_clip=None, scores = None, attention_mask=None, decoder_input_ids=None, decoder_attention_mask=None, labels=None, output_attentions=None, output_hidden_states=None, return_dict=None, interpolate_pos_encoding=False):
