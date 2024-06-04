@@ -300,7 +300,7 @@ class TrainDataset(Dataset):
         if self.direct_load:
             image = self.images[idx]
         else:
-            image = Image.open(self.root + 'train2014/' + self.img_names[idx] + '.jpg')
+            image = Image.open('train2014/' + self.img_names[idx] + '.jpg')
             image = self.processor.image_processor(images=[image], return_tensors="pt").to(self.device, torch.float16).pixel_values.squeeze(0)
 
         scores, indices = self.kNN[idx]
