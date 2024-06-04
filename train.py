@@ -61,8 +61,6 @@ class Blip2Retreiver(nn.Module):
         edge_index = torch.tensor(edge_index, dtype=torch.long, device=self.device).T
 
         edge_attr = scores.repeat(1,2).to(self.device).flatten()
-
-            
         x = self.graph_conv1(x.flatten(end_dim=-2), edge_index, edge_attr)
         x = torch.relu(x)
 
@@ -317,7 +315,8 @@ class TrainDataset(Dataset):
         caption_ids = self.caption_ids[idx]
         attention_mask = torch.ones(max_caption_ids.shape).to(self.device)
         if self.is_fusion:
-            caption_embs = self.caption_emb[indices]
+            caption_embs = self.caption_emb[indices[:self.k]]
+
             return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), caption_embs, scores[:self.k]
         else:
             return max_caption_ids.to(self.device), image, attention_mask, caption_ids.to(self.device), torch.tensor(1), scores[:self.k]
