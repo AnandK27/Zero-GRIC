@@ -18,13 +18,15 @@ def create_id_cap_mapping(data_path, predicted_data_path, out_path):
         id = i['id']
         file_name_2_id[file_name] = id
 
+    dict_list = []
 
     for image_name,caption in predicted_data.items():
         id = file_name_2_id[image_name+'.jpg']
-        id_caption[id] = caption
+        tmp_dict = {'image_id': id, 'caption': caption}
+        dict_list.append(tmp_dict)
 
     out_file = open(out_path, "w") 
-    json.dump(id_caption, out_file)
+    json.dump(dict_list, out_file)
 
     print('Done')
 
