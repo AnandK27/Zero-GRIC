@@ -1,5 +1,6 @@
 from PIL import Image
 from transformers import Blip2Processor, Blip2ForConditionalGeneration
+from transformers.models.blip_2.modeling_blip_2 import Blip2ForConditionalGenerationModelOutput
 import torch
 
 from torch.utils.data import Dataset, DataLoader
@@ -12,17 +13,15 @@ import pickle
 import os
 import sys
 
-from transformers.models.blip_2.modeling_blip_2 import Blip2ForConditionalGenerationModelOutput
-
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 class Blip2Retreiver(Blip2ForConditionalGeneration):
     def __init__(self, model_name, load_in_8bit=True, device_map=None, torch_dtype=None):
         super().__init__(model_name, load_in_8bit, device_map, torch_dtype)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.from_pretrained(model_name, load_in_8bit, device_map, torch_dtype)
 
         self.mlp = nn.Sequential(nn.Linear(768, 1408), nn.ReLU(), nn.Linear(1408, 1408)).to(self.device)
-
         self.graph_conv1 = torch_geometric.nn.GCNConv(768, 1024)
         self.graph_conv2 = torch_geometric.nn.GCNConv(1024, 768)
 
@@ -210,7 +209,10 @@ class TrainDataset(Dataset):
 
 if __name__ == '__main__':
     batch_size = int(sys.argv[1])
-    direct_load = bool(int(sys.argv[2]))
+    save_path = sys.argv[2]
+    direct_load = bool(int(sys.argv[3]))
+    k = int(sys.argv[4])
+
 
     train_data = TrainDataset(direct_load=direct_load)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
@@ -225,13 +227,12 @@ if __name__ == '__main__':
         if type(param) == torch.nn.parameter.Parameter:
             param.requires_grad = False 
 
-    epochs = 25
+    epochs = 5
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=0.00001)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs*len(train_loader), eta_min=0.00001)
 
-    save_path = '/3d_data/retreiver/base/'
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
@@ -240,19 +241,15 @@ if __name__ == '__main__':
         model.load_state_dict(torch.load(save_path + 'best_model.pt'))
 
     model.train()
-
     best_loss = 1000
 
-
-
     print('==================== Training Started ====================')
-    for epoch in range(15):
+    for epoch in range(epochs):
         loss_avg = 0
         for i, (input_ids, pixel_values, attention_masks, caption_ids) in tqdm.tqdm(enumerate(train_loader), total=len(train_loader)):
             optimizer.zero_grad()
 
             outputs = model(pixel_values = pixel_values, input_ids = input_ids, attention_mask = attention_masks, labels=caption_ids)
-            print(outputs.vision_outputs[0].shape)
             loss = outputs.loss
             
             loss.backward()

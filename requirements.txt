@@ -3,3 +3,4 @@ numpy
 accelerate
 bitsandbytes
 tqdm
+pycocoevalcap
