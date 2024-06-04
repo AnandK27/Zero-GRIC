@@ -1,10 +1,13 @@
 import json
+import pickle
 
-def create_id_cap_mapping():
-    data = open('annotations/captions_train2014.json')
-    predicted_data = open('data/image_id_caption.json')
+def create_id_cap_mapping(data_path, predicted_data_path, out_path):
+    data = open(data_path)
+    predicted_data = open(predicted_data_path)
+
     data = json.load(data)
-    predicted_data = json.load(predicted_data)
+    with open(predicted_data_path, 'rb') as handle:
+        predicted_data = pickle.load(handle)
 
     id_caption = {}
     for i in data['images'] :
@@ -14,7 +17,10 @@ def create_id_cap_mapping():
             if image_name == file_name:
                 id_caption[id] = caption
 
-    out_file = open('data/id_caption.json', "w") 
-    json.dump(id_caption,out_file)
+    out_file = open(out_path, "w") 
+    json.dump(id_caption, out_file)
 
     return
+
+if __name__ == '__main__':
+    create_id_cap_mapping('/3d_data/datasets/coco/annotations/captions_val2014.json', '/3d_data/retreiver/base/predictions.pickle', '/3d_data/retreiver/base/predictions.json')
