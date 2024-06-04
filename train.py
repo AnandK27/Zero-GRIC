@@ -18,7 +18,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 class Blip2Retreiver(Blip2ForConditionalGeneration):
     def __init__(self, model_name, load_in_8bit=True, device_map=None, torch_dtype=None):
-        super().__init__(model_name, load_in_8bit, device_map, torch_dtype)
+        super().__init__()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.from_pretrained(model_name, load_in_8bit, device_map, torch_dtype)
 
