@@ -98,7 +98,9 @@ class ValidationDataset(Dataset):
         self.processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
 
         captions = [self.image_caption_dict[name + '.jpg'][self.max_caption_dict["val_emb\\" +name+'.npy']] for name in self.img_names]
-        neighbor_captions = [self.train_image_caption_dict[name + '.jpg'][self.train_max_caption_dict['train_emb/'+name+'.npy']] + ' Rephrase' for name in self.train_img_names]
+        train_captions = [self.train_image_caption_dict[name + '.jpg'][self.train_max_caption_dict['train_emb/'+name+'.npy']] for name in self.train_img_names]
+
+        neighbor_captions = [  ', '.join([train_captions[j] for j in self.kNN[idx][1][:k]]) + ' Summarize' for idx, name in enumerate(self.img_names)]
 
         self.caption_ids = self.processor.tokenizer(text = captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
         self.neighbor_ids = self.processor.tokenizer(text = neighbor_captions, return_tensors="pt", padding='max_length', truncation=True, max_length = 20).input_ids.to(self.device)
