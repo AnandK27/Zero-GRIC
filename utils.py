@@ -26,6 +26,8 @@ def create_id_cap_mapping(data_path, predicted_data_path, out_path):
     out_file = open(out_path, "w") 
     json.dump(id_caption, out_file)
 
+    print('Done')
+
     return
 
 if __name__ == '__main__':
