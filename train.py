@@ -55,7 +55,7 @@ class Blip2Retreiver(nn.Module):
 
         edge_index = np.array(edge_index)
         edge_indices = []
-        for i in range(batch_size):
+        for i in range(len(pixel_values)):
             edge_indices.append(edge_index + i*k)
         edge_index = np.concatenate(edge_indices)
         edge_index = torch.tensor(edge_index, dtype=torch.long, device=self.device).T
