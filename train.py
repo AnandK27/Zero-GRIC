@@ -373,6 +373,7 @@ if __name__ == '__main__':
         model.load_state_dict(torch.load(files[-1]))
         epoch = int(files[-1].split('_')[-1].split('.')[0])
         print(f'Model Loaded from {files[-1]}')
+        scheduler.step(epoch*len(train_loader))
     else:
         epoch = 0
 
