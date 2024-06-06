@@ -356,7 +356,7 @@ if __name__ == '__main__':
             if type(param) == torch.nn.parameter.Parameter:
                 param.requires_grad = False 
 
-    epochs = 8
+    epochs = 15
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
