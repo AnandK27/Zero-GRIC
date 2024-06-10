@@ -369,6 +369,8 @@ if __name__ == '__main__':
     model_files = sorted(model_files, key = lambda x: int(x.split('_')[-1].split('.')[0]))
     best_model = model_files[-1]
     model.load_state_dict(torch.load(best_model))
+    print('Model Loaded')
+    model = model.to(model.device)
     model.eval()
 
     val_data = ValidationDataset(k=k, is_fusion=is_fusion)
