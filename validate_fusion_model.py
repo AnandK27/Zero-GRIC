@@ -140,7 +140,7 @@ class Blip2Retreiver(nn.Module):
             language_model_outputs=outputs,
         )
     
-    def generate(self, pixel_values=None, input_ids=None, attention_mask=None, text_clip=None, scores = None, generate_kwargs=None):
+    def generate(self, pixel_values=None, input_ids=None, attention_mask=None, text_clip=None, scores = None, **generate_kwargs):
         if hasattr(self.model, "hf_device_map"):
         # preprocess for `accelerate`
             self.model._preprocess_accelerate()
