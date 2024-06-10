@@ -9,7 +9,7 @@ import numpy as np
 import tqdm
 import torch_geometric
 
-import pickle, os, sys, glob
+import pickle, os, sys, glob, json
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -392,6 +392,18 @@ if __name__ == '__main__':
     # with open(save_path + 'predictions.pickle', 'wb') as handle:
     #     pickle.dump(predictions, handle, protocol=pickle.HIGHEST_PROTOCOL)
     #save to predictions_k.txt with each line being the prediction
-    with open(save_path + 'predictions_'+str(k)+'.txt', 'w') as f:
-        for image in val_data.img_names:
-            f.write(predictions[image] + '\n')
+
+    img_name_id = json.load(open('/3d_data/datasets/coco/annotations/captions_val2014.json'))
+    file_name = 'predictions_'+str(k)+'.json'
+
+    predictions_save = []
+
+    for image in img_name_id['images']:
+        image_id = image['id']
+        image_name = image['file_name']
+        predictions_save.append({'image_id': image_id, 'caption': predictions[image_name]})
+
+    with open(save_path + file_name, 'w') as f:
+        json.dump(predictions_save, f)
+
+    
