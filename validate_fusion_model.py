@@ -336,8 +336,8 @@ class ValidationDataset(Dataset):
 
 if __name__ == '__main__':
     batch_size = int(sys.argv[1])
-    save_path = int(sys.argv[2])
-    model_path = int(sys.argv[3])
+    save_path = sys.argv[2]
+    model_path = sys.argv[3]
     k=int(sys.argv[4])
     is_fusion = save_path.split('/')[-2] == 'fusion'
 
