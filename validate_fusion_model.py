@@ -146,7 +146,7 @@ class Blip2Retreiver(nn.Module):
             self.model._preprocess_accelerate()
 
         batch_size = pixel_values.shape[0]
-        image_embeds = self.vision_model(
+        image_embeds = self.model.vision_model(
             pixel_values,
             return_dict=True,
             interpolate_pos_encoding=interpolate_pos_encoding,
