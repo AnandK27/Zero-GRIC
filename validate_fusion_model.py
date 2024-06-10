@@ -140,7 +140,7 @@ class Blip2Retreiver(nn.Module):
             language_model_outputs=outputs,
         )
     
-    def generate(self, pixel_values=None, input_ids=None, attention_mask=None, text_clip=None, scores = None, decoder_start_token_id=None, decoder_end_token_id=None, generate_kwargs=None, interpolate_pos_encoding=False):
+    def generate(self, pixel_values=None, input_ids=None, attention_mask=None, text_clip=None, scores = None, generate_kwargs=None):
         if hasattr(self.model, "hf_device_map"):
         # preprocess for `accelerate`
             self.model._preprocess_accelerate()
@@ -149,7 +149,6 @@ class Blip2Retreiver(nn.Module):
         image_embeds = self.model.vision_model(
             pixel_values,
             return_dict=True,
-            interpolate_pos_encoding=interpolate_pos_encoding,
         ).last_hidden_state
 
         global_image_embeds = image_embeds[:, 0, :].reshape(-1, 1, 1408)
