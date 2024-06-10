@@ -401,7 +401,7 @@ if __name__ == '__main__':
     for image in img_name_id['images']:
         image_id = image['id']
         image_name = image['file_name']
-        predictions_save.append({'image_id': image_id, 'caption': predictions[image_name]})
+        predictions_save.append({'image_id': image_id, 'caption': predictions[image_name.split('.')[0]]})
 
     with open(save_path + file_name, 'w') as f:
         json.dump(predictions_save, f)
