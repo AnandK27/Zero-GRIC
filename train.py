@@ -344,7 +344,10 @@ if __name__ == '__main__':
 
         for param in model.vision_model.parameters():
             if type(param) == torch.nn.parameter.Parameter:
-                param.requires_grad = False 
+                param.requires_grad = False
+        
+        print('Num params')
+        print(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
     else:
         model = Blip2Retreiver("Salesforce/blip2-opt-2.7b", load_in_8bit=True, device_map={"": 0}, torch_dtype=torch.float16)
@@ -354,13 +357,16 @@ if __name__ == '__main__':
 
         for param in model.model.vision_model.parameters():
             if type(param) == torch.nn.parameter.Parameter:
-                param.requires_grad = False 
+                param.requires_grad = False
+        
+        print('Num params')
+        print(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
     epochs = 15
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs*len(train_loader), eta_min=0.00001)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.00005)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs*len(train_loader), eta_min=0.000001)
 
     if not os.path.exists(save_path):
         os.makedirs(save_path)
