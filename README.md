@@ -114,3 +114,4 @@ Full table comparison
 ## References
 
 - [1] [BLIP-2: Bootstrapping Language-Image Pre-training with Frozen Image Encoders and Large Language Models](https://arxiv.org/abs/2301.12597)
+- [2] [NICE: CVPR 2023 Challenge on Zero-shot Image Captioning](https://arxiv.org/abs/2309.01961)
