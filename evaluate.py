@@ -1,6 +1,6 @@
 from pycocotools.coco import COCO
 from pycocoevalcap.eval import COCOEvalCap
-import json
+import json, sys
 
 def evaluate(ground_truth_json, prediction_json, save_file = None):
 
@@ -29,5 +29,6 @@ def evaluate(ground_truth_json, prediction_json, save_file = None):
 
 
 if __name__ == '__main__':
-    evaluate('/3d_data/datasets/coco/annotations/captions_val2014.json', '/3d_data/retreiver/base/predictions.json', '/3d_data/retreiver/base/eval_scores.json')
+    predictions_json = sys.argv[1]
+    evaluate('/3d_data/datasets/coco/annotations/captions_val2014.json', predictions_json, '/3d_data/retreiver/base/eval_scores.json')
     
