@@ -71,7 +71,7 @@ class TrainDataset(Dataset):
         return len(self.img_names)
     
 class ValidationDataset(Dataset):
-    def __init__(self, k = 1, path='/3d_data/datasets/coco/', knn_file = 'knn/kNN_val.npy', dict_file ='image_name_val.pickle', image_2_cap = 'image_name_2_captions_val.pickle', train_dict_file = 'image_name.pickle', train_image_2_cap = 'image_name_2_captions.pickle'):
+    def __init__(self, k = 1, path = '', knn_file = 'knn/kNN_val.npy', dict_file ='image_name_val.pickle', image_2_cap = 'image_name_2_captions_val.pickle', train_dict_file = 'image_name.pickle', train_image_2_cap = 'image_name_2_captions.pickle'):
 
         self.root = path
         self.kNN = np.load(self.root + knn_file, allow_pickle=True)
@@ -142,7 +142,7 @@ class ValidationDataset(Dataset):
 
 if __name__ == '__main__':
     batch_size = int(sys.argv[1])
-    save_path = '/3d_data/retreiver/base/'
+    save_path = sys.argv[2]
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
@@ -192,7 +192,7 @@ if __name__ == '__main__':
 
     model.eval()
 
-    val_data = ValidationDataset()
+    val_data = ValidationDataset(path='/3d_data/datasets/coco/')
     val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False)
 
     predictions = {}
